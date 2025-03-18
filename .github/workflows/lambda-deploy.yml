@@ -1,38 +1,28 @@
-name: Deploy Lambda Function
-
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'lambda/**'  # Runs only if Lambda files change
+on: [push]
 
 jobs:
   deploy_lambda:
-    name: Deploy AWS Lambda
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup AWS CLI and Configure Profile
+      - name: Set up AWS credentials for Lambda deployment
         run: |
           mkdir -p ~/.aws
-          echo "[default]" > ~/.aws/credentials
+          echo "[AWS-OU-ALL-Admin-199988137734]" > ~/.aws/credentials
           echo "aws_access_key_id = ${{ secrets.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
           echo "aws_secret_access_key = ${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
+          echo "aws_session_token = ${{ secrets.AWS_SESSION_TOKEN }}" >> ~/.aws/credentials
           echo "[default]" > ~/.aws/config
           echo "region = ap-southeast-2" >> ~/.aws/config
 
-      - name: Install Dependencies
-        run: |
-          cd lambda
-          pip install -r requirements.txt -t .
-          zip -r lambda_function.zip . 
+      - name: Set AWS Profile for Lambda Deployment
+        run: echo "AWS_PROFILE=AWS-OU-ALL-Admin-199988137734" >> $GITHUB_ENV
 
-      - name: Deploy Lambda to AWS
+      - name: Update Lambda Function Code
         run: |
           aws lambda update-function-code \
-            --function-name MSEC2BackupTagManager \
-            --zip-file fileb://lambda/lambda_function.zip
+            --function-name your-lambda-function-name \
+            --zip-file fileb://path/to/your/lambda.zip

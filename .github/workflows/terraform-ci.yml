@@ -32,15 +32,25 @@ jobs:
           echo "[default]" > ~/.aws/config
           echo "region = ap-southeast-2" >> ~/.aws/config
 
+      - name: Set AWS_PROFILE environment variable
+        run: echo "AWS_PROFILE=AWS-OU-ALL-Admin-199988137734" >> $GITHUB_ENV
+
+      - name: Change Directory to Terraform Config
+        run: cd terraform
+
       - name: Initialize Terraform
         run: terraform init
+        working-directory: terraform
 
       - name: Validate Terraform
         run: terraform validate
+        working-directory: terraform
 
       - name: Terraform Plan
         run: terraform plan -out=tfplan
+        working-directory: terraform
 
       - name: Terraform Apply (Only on main branch)
         if: github.ref == 'refs/heads/main'
         run: terraform apply -auto-approve tfplan
+        working-directory: terraform
