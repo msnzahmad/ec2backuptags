@@ -61,7 +61,6 @@ resource "aws_iam_role" "LambdaExecutionRole" {
   })
 }
 
-# Define the policy separately and attach it using aws_iam_role_policy
 resource "aws_iam_role_policy" "LambdaExecutionPolicy" {
   name   = "LambdaExecutionPolicy"
   role   = aws_iam_role.LambdaExecutionRole.id
@@ -87,12 +86,15 @@ resource "aws_iam_role_policy" "LambdaExecutionPolicy" {
   })
 }
 
+# Use relative path to Lambda ZIP file
 resource "aws_lambda_function" "MSEC2BackupTagManager" {
   function_name = "MSEC2BackupTagManager"
   role          = aws_iam_role.LambdaExecutionRole.arn
   handler       = "lambda_function.lambda_handler"
   runtime       = "python3.9"
-  filename      = "C:\\Users\\ahassan\\OneDrive - MetService\\Desktop\\MetService\\AWS\\ms-terraform\\Terraform\\ec2tagchange\\lambda_function.zip"
+  
+  # Change to a relative path
+  filename      = "${path.module}/lambda_function.zip"
   timeout       = 300
 }
 
