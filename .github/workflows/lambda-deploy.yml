@@ -1,0 +1,38 @@
+name: Deploy Lambda Function
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'lambda/**'  # Runs only if Lambda files change
+
+jobs:
+  deploy_lambda:
+    name: Deploy AWS Lambda
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup AWS CLI and Configure Profile
+        run: |
+          mkdir -p ~/.aws
+          echo "[default]" > ~/.aws/credentials
+          echo "aws_access_key_id = ${{ secrets.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
+          echo "aws_secret_access_key = ${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
+          echo "[default]" > ~/.aws/config
+          echo "region = ap-southeast-2" >> ~/.aws/config
+
+      - name: Install Dependencies
+        run: |
+          cd lambda
+          pip install -r requirements.txt -t .
+          zip -r lambda_function.zip . 
+
+      - name: Deploy Lambda to AWS
+        run: |
+          aws lambda update-function-code \
+            --function-name MSEC2BackupTagManager \
+            --zip-file fileb://lambda/lambda_function.zip
