@@ -1,0 +1,53 @@
+name: Terraform CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform:
+    name: Terraform Deployment
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: "ap-southeast-2"
+
+    steps:
+      # Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: latest
+
+      # Initialize Terraform
+      - name: Terraform Init
+        run: terraform init
+        working-directory: terraform
+
+      # Validate Terraform
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: terraform
+
+      # Package the Lambda function
+      - name: Package Lambda
+        run: |
+          cd lambda
+          zip -r ../lambda_function.zip .
+        shell: bash
+
+      # Apply Terraform (Deploy infra & Lambda)
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: terraform
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
