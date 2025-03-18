@@ -1,0 +1,7 @@
+# Ignore Terraform state and cache
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+
+# Ignore Lambda package
+lambda_function.zip
