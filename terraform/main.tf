@@ -1,6 +1,12 @@
+# Check if the MSEventbridgeRole IAM Role exists
+data "aws_iam_role" "MSEventbridgeRole" {
+  name = "MSEventbridgeRole"
+}
+
 resource "aws_iam_role" "MSEventbridgeRole" {
-  name               = "MSEventbridgeRole"
-  assume_role_policy = jsonencode({
+  count               = data.aws_iam_role.MSEventbridgeRole != null ? 0 : 1
+  name                = "MSEventbridgeRole"
+  assume_role_policy  = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
@@ -15,10 +21,56 @@ resource "aws_iam_role" "MSEventbridgeRole" {
   max_session_duration = 3600
 }
 
+# Check if the LambdaExecutionRole IAM Role exists
+data "aws_iam_role" "LambdaExecutionRole" {
+  name = "LambdaExecutionRole"
+}
+
+resource "aws_iam_role" "LambdaExecutionRole" {
+  count               = data.aws_iam_role.LambdaExecutionRole != null ? 0 : 1
+  name                = "LambdaExecutionRole"
+  assume_role_policy  = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Principal = {
+          Service = ["lambda.amazonaws.com", "events.amazonaws.com"]
+        }
+        Action   = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+# Check if the Lambda Log Group already exists
+data "aws_cloudwatch_log_group" "LambdaLogGroup" {
+  name = "/aws/lambda/MSEC2BackupTagManager"
+}
+
+resource "aws_cloudwatch_log_group" "LambdaLogGroup" {
+  count              = data.aws_cloudwatch_log_group.LambdaLogGroup != null ? 0 : 1
+  name               = "/aws/lambda/MSEC2BackupTagManager"
+  retention_in_days  = 30
+}
+
+# Check if the EventBridge Log Group already exists
+data "aws_cloudwatch_log_group" "EventBridgeLogGroup" {
+  name = "/aws/events/EC2StateChangeRule"
+}
+
+resource "aws_cloudwatch_log_group" "EventBridgeLogGroup" {
+  count              = data.aws_cloudwatch_log_group.EventBridgeLogGroup != null ? 0 : 1
+  name               = "/aws/events/EC2StateChangeRule"
+  retention_in_days  = 30
+}
+
+# IAM Role Policies for MSEventbridgeRole
 resource "aws_iam_role_policy" "MSEventbridgeRolePolicy" {
-  name   = "MSEventbridgeRolePolicy"
-  role   = aws_iam_role.MSEventbridgeRole.id
-  policy = jsonencode({
+  count   = data.aws_iam_role.MSEventbridgeRole != null ? 0 : 1
+  name    = "MSEventbridgeRolePolicy"
+  role    = aws_iam_role.MSEventbridgeRole.id
+  policy  = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
@@ -45,26 +97,12 @@ resource "aws_iam_role_policy" "MSEventbridgeRolePolicy" {
   })
 }
 
-resource "aws_iam_role" "LambdaExecutionRole" {
-  name               = "LambdaExecutionRole"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect    = "Allow"
-        Principal = {
-          Service = ["lambda.amazonaws.com", "events.amazonaws.com"]
-        }
-        Action   = "sts:AssumeRole"
-      }
-    ]
-  })
-}
-
+# IAM Role Policies for LambdaExecutionRole
 resource "aws_iam_role_policy" "LambdaExecutionPolicy" {
-  name   = "LambdaExecutionPolicy"
-  role   = aws_iam_role.LambdaExecutionRole.id
-  policy = jsonencode({
+  count   = data.aws_iam_role.LambdaExecutionRole != null ? 0 : 1
+  name    = "LambdaExecutionPolicy"
+  role    = aws_iam_role.LambdaExecutionRole.id
+  policy  = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
@@ -86,28 +124,17 @@ resource "aws_iam_role_policy" "LambdaExecutionPolicy" {
   })
 }
 
-# Use relative path to Lambda ZIP file
+# Lambda Function
 resource "aws_lambda_function" "MSEC2BackupTagManager" {
   function_name = "MSEC2BackupTagManager"
   role          = aws_iam_role.LambdaExecutionRole.arn
   handler       = "lambda_function.lambda_handler"
   runtime       = "python3.9"
-  
-  # Change to a relative path
-  filename      = "${path.module}/lambda_function.zip"
+  filename      = "lambda/lambda_function.zip"
   timeout       = 300
 }
 
-resource "aws_cloudwatch_log_group" "LambdaLogGroup" {
-  name              = "/aws/lambda/MSEC2BackupTagManager"
-  retention_in_days = 30
-}
-
-resource "aws_cloudwatch_log_group" "EventBridgeLogGroup" {
-  name              = "/aws/events/EC2StateChangeRule"
-  retention_in_days = 30
-}
-
+# EventBridge Rule
 resource "aws_cloudwatch_event_rule" "EventBridgeRule" {
   name          = "EC2StateChangeRule"
   event_pattern = <<EOF
@@ -119,13 +146,13 @@ resource "aws_cloudwatch_event_rule" "EventBridgeRule" {
   }
 }
 EOF
-
   depends_on = [
     aws_iam_role.MSEventbridgeRole,
     aws_lambda_function.MSEC2BackupTagManager
   ]
 }
 
+# EventBridge Target
 resource "aws_cloudwatch_event_target" "EventBridgeTarget" {
   rule      = aws_cloudwatch_event_rule.EventBridgeRule.name
   target_id = "TargetLambda"
@@ -133,6 +160,7 @@ resource "aws_cloudwatch_event_target" "EventBridgeTarget" {
   role_arn  = aws_iam_role.MSEventbridgeRole.arn
 }
 
+# Lambda Permission for EventBridge
 resource "aws_lambda_permission" "EventBridgeInvokePermission" {
   function_name = aws_lambda_function.MSEC2BackupTagManager.function_name
   action        = "lambda:InvokeFunction"
